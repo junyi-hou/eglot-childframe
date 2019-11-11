@@ -108,8 +108,8 @@
     (left-fringe . 3)
     (right-fringe . 3)
     (internal-border-width . 1)
-    ;; TODO: allow small vertical scroll bars
-    (vertical-scroll-bars . nil)
+    (vertical-scroll-bars . right)
+    (scroll-bar-width . 8)
     (horizontal-scroll-bars . nil)
     (undecorated . t)
     (header-line-format . nil)
