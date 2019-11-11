@@ -66,6 +66,26 @@
    eglot-childframe-help-frame-height
    #'eglot-childframe--display-help))
 
+;;;###autoload
+(defun eglot-childframe-definition ()
+  "Display definition for `symbol-at-point'."
+  (interactive)
+  (eglot-childframe--create-frame
+   eglot-childframe-xref-frame-position-fn
+   eglot-childframe-xref-frame-width
+   eglot-childframe-xref-frame-height
+   #'eglot-childframe--display-peek (eglot-childframe--ref-at-point 'definitions)))
+
+;;;###autoload
+(defun eglot-childframe-reference ()
+  "Display references for `symbol-at-point'."
+  (interactive)
+  (eglot-childframe--create-frame
+   eglot-childframe-xref-frame-position-fn
+   eglot-childframe-xref-frame-width
+   eglot-childframe-xref-frame-height
+   #'eglot-childframe--display-peek (eglot-childframe--ref-at-point 'references)))
+
 ;; internal
 
 (defvar eglot-childframe--frame nil)
@@ -88,12 +108,14 @@
     (left-fringe . 3)
     (right-fringe . 3)
     (internal-border-width . 1)
+    ;; TODO: allow small vertical scroll bars
     (vertical-scroll-bars . nil)
     (horizontal-scroll-bars . nil)
     (undecorated . t)
     (header-line-format . nil)
     (mode-line-format . nil)
-    (unsplittable . t)))
+    (unsplittable . t)
+    (bottom-divider-width . 2)))
 
 (defvar-local eglot-childframe--restore-keymap-fn nil)
 
@@ -137,7 +159,7 @@
       (set-frame-size eglot-childframe--frame width height)
       ;; call display function to display content
       (setq eglot-childframe--content-window (selected-window))
-      (funcall display-fun args)
+      (apply display-fun args)
 
     ;; deal with buffer-local-variables
     (with-current-buffer eglot-childframe--content-buffer
@@ -170,25 +192,39 @@
 
 (defun eglot-childframe--peek (xref)
   "Peek XREF."
+
+  ;; debug
+  ;; (unless (xref-item-p xref)
+  ;;   (user-error "argument is not an xref-item"))
+
   (with-selected-window eglot-childframe--content-window
    (let* ((marker (save-excursion
                    (xref-location-marker (xref-item-location xref))))
-         (buf (progn
-                (when (get-buffer eglot-childframe--content-buffer)
-                  (kill-buffer eglot-childframe--content-buffer))
-                (make-indirect-buffer
-                 (marker-buffer marker)
-                 eglot-childframe--content-buffer)))
-         (loc (marker-position marker)))
+          (xref-buffer (marker-buffer marker))
+          (loc (marker-position marker)))
     (setq eglot-childframe--current-xref xref)
 
-    (switch-to-buffer buf)
-    (goto-char loc)
+    (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
+      (erase-buffer)
+      (insert (with-current-buffer xref-buffer (buffer-string)))
+      (delay-mode-hooks
+        (funcall (with-current-buffer xref-buffer major-mode))
+        (display-line-numbers-mode)
+        (setq-local display-line-numbers t)
+        (turn-on-font-lock)
+        (font-lock-ensure))
 
-    (with-current-buffer buf
       (setq eglot-childframe--restore-keymap-fn
             (set-transient-map
-             eglot-childframe-frame-map t #'eglot-childframe-hide))))))
+             eglot-childframe-frame-map t #'eglot-childframe-hide)))
+
+    (switch-to-buffer eglot-childframe--content-buffer)
+    (goto-char loc)
+    ;; (evil-scroll-line-to-center (line-number-at-pos loc))
+    (let ((beg (line-beginning-position))
+          (end (line-end-position)))
+      (add-face-text-property beg end 'region t))
+    )))
 
 (defun eglot-childframe--display-peek (xrefs)
   "Disply peeks for `symbol-at-point'."
@@ -247,6 +283,13 @@
       (setq eglot-childframe--restore-keymap-fn nil)
       (funcall fn)))
   ;; kill frame, buffer and window
+  ;; (kill-buffer eglot-childframe--content-buffer)
+  ;; (delete-window eglot-childframe--content-window)
+
+  ;; (when (memq eglot-childframe--control-buffer (buffer-list eglot-childframe--frame))
+  ;;   (kill-buffer eglot-childframe--control-buffer)
+  ;;   (delete-window eglot-childframe--control-window))
+
   (delete-frame eglot-childframe--frame)
   (setq eglot-childframe--frame nil))
 
@@ -294,7 +337,7 @@
 (defun eglot-childframe-move-xref (&optional prev)
   "Move to next xref.  If PREV is non-nil, move to previous xref."
   (with-current-buffer eglot-childframe--control-buffer
-    (let* ((xref (xref--search-property 'xref-item backwards))
+    (let* ((xref (xref--search-property 'xref-item prev))
            (beg (line-beginning-position))
            (end (line-end-position)))
       (eglot-childframe--select-xref beg end)
@@ -325,14 +368,12 @@
       (cons -1 0)
     (cons 5 0)))
 
-(defun eglot-childframe-xref-frame-default-position (width height)
+(defun eglot-childframe-xref-frame-default-position (&rest _)
   (let ((symbol-at-point-pos (save-excursion
                               (beginning-of-thing 'symbol)
                               (window-absolute-pixel-position))))
     (cons (+ (default-font-height) (car symbol-at-point-pos))
           (cdr symbol-at-point-pos))))
-
-
 
 (provide 'eglot-childframe)
 ;;; eglot-childframe.el ends here
