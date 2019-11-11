@@ -205,8 +205,7 @@
 
       (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
         (erase-buffer)
-        ;; FIXME: how to write file content to a buffer again?
-        ;; (insert (file-content xref-file))
+        (insert-file-contents xref-file)
         (delay-mode-hooks
           (let ((inhibit-message t)
                 (buffer-file-name xref-file))
@@ -223,11 +222,12 @@
       (switch-to-buffer eglot-childframe--content-buffer)
       ;; FIXME how to go from line number to loc?
       (goto-char 1)
-      (line-move xref-line)
+      (line-move (1- xref-line))
 
       (let ((beg (line-beginning-position))
             (end (line-end-position)))
-        (add-face-text-property beg end 'region t)))))
+        (add-face-text-property beg end 'region t)
+        (line-move (* 2 (/ eglot-childframe-xref-frame-height 3)))))))
 
 (defun eglot-childframe--display-peek (xrefs)
   "Disply peeks for `symbol-at-point'."
