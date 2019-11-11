@@ -228,7 +228,7 @@
       (let ((beg (line-beginning-position))
             (end (line-end-position)))
         (add-face-text-property beg end 'region t)
-        (line-move (* 2 (/ eglot-childframe-xref-frame-height 3)))))))
+        (line-move (* 2 (/ eglot-childframe-xref-frame-height 3)) 'noerror)))))
 
 (defun eglot-childframe--display-peek (xrefs)
   "Disply peeks for `symbol-at-point'."
@@ -367,12 +367,33 @@
     (cons 5 0)))
 
 (defun eglot-childframe-xref-frame-default-position (width height)
-  ;; use posframe's poshandler should work
-  (let ((symbol-at-point-pos (save-excursion
-                              (beginning-of-thing 'symbol)
-                              (window-absolute-pixel-position))))
-    (cons (+ (default-font-height) (car symbol-at-point-pos))
-          (cdr symbol-at-point-pos))))
+  (let* ((symbol-at-point-pos (save-excursion
+                                (beginning-of-thing 'symbol)
+                                (window-absolute-pixel-position)))
+         (x (car symbol-at-point-pos))
+         (y (+ (default-font-height) (cdr symbol-at-point-pos)))
+         (cf-width (frame-pixel-width eglot-childframe--frame))
+         (cf-height (frame-pixel-height eglot-childframe--frame))
+         (cf-right-edge (+ x cf-width))
+         (cf-bottom-edge (+ y cf-height))
+         (f-width (frame-pixel-width))
+         (f-height (frame-pixel-height)))
+    (cond
+     ;; case 1: frame is too wide, note that this could only happen on the right edge
+     ;; with reasonable value of `eglot-childframe-xref-frame-width' (e.g., < 100),
+     ;; shifting the whole child frame to the left will not cause problem
+     ((>= cf-right-edge f-width)
+      (cons (- x (- cf-right-edge f-width) 10) y))
+
+     ;; case 2: frame is too tall, note that this could only happen on the bottom edge
+     ;; different from case 1, we do not want to simply shift the whole childframe up,
+     ;; which will cover the point position of the parent frame. Instead, we scroll
+     ;; the parent window up and generate enough room for the child frame
+     ((>= cf-bottom-edge f-height)
+      (cons x (- y (- cf-bottom-edge f-height) 10)))
+
+     ;; case 3: well within the premise of the current frame
+     (t (cons x y)))))
 
 (provide 'eglot-childframe)
 ;;; eglot-childframe.el ends here
