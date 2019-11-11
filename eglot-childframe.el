@@ -138,7 +138,9 @@
 (defun eglot-childframe--create-frame (position width height display-fun &rest args)
   "Create a child frame at POSITION with WIDTH and HEIGHT.  After child frame is created, call DISPLAY-FUN with ARGS in the child frame to generate contents to be displayed in the child frame."
   (setq eglot-childframe--frame
-        (make-frame eglot-childframe--init-parameters))
+        (make-frame (append eglot-childframe--init-parameters
+                            `((width . ,width)
+                              (height . ,height)))))
 
   (let ((pos (if (functionp position)
                  (apply position `(,width ,height))
@@ -156,7 +158,6 @@
       (set-face-background 'internal-border
                            "gray80" eglot-childframe--frame)
 
-      (set-frame-size eglot-childframe--frame width height)
       ;; call display function to display content
       (setq eglot-childframe--content-window (selected-window))
       (apply display-fun args)
