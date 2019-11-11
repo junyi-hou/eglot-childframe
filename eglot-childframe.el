@@ -95,7 +95,7 @@
     (mode-line-format . nil)
     (unsplittable . t)))
 
-(defvar-local eglot-childframe-restore-keymap-fn nil)
+(defvar-local eglot-childframe--restore-keymap-fn nil)
 
 (defun eglot-childframe--ref-at-point (kind)
   "Get a list of xref references item of KIND (e.g., definitions, references, etc.)."
@@ -118,36 +118,36 @@
   (setq eglot-childframe--frame
         (make-frame eglot-childframe--init-parameters))
 
-  ;; follow snails.el
-  (with-selected-frame eglot-childframe--frame
-    ;; Delete other window first, make sure only one window in frame.
-    (delete-other-windows)
+  (let ((pos (if (functionp position)
+                 (apply position `(,width ,height))
+               position)))
+    ;; follow snails.el
+    (with-selected-frame eglot-childframe--frame
+      ;; Delete other window first, make sure only one window in frame.
+      (delete-other-windows)
 
-    ;; Disable menu
-    (set-frame-parameter eglot-childframe--frame 'menu-bar-lines 0)
+      ;; Disable menu
+      (set-frame-parameter eglot-childframe--frame 'menu-bar-lines 0)
 
-    ;; move frame to desirable position
-    (let ((pos (if (functionp position)
-                   (apply position `(,width ,height))
-                 position)))
-      (set-frame-position eglot-childframe--frame (car pos) (cdr pos)))
-    (set-face-background 'internal-border
-                         "gray80" eglot-childframe--frame)
+      ;; move frame to desirable position
+      (set-frame-position eglot-childframe--frame (car pos) (cdr pos))
+      (set-face-background 'internal-border
+                           "gray80" eglot-childframe--frame)
 
-    (set-frame-size eglot-childframe--frame width height)
-    ;; call display function to display content
-    (setq eglot-childframe--content-window (selected-window))
-    (funcall display-fun args)
+      (set-frame-size eglot-childframe--frame width height)
+      ;; call display function to display content
+      (setq eglot-childframe--content-window (selected-window))
+      (funcall display-fun args)
 
     ;; deal with buffer-local-variables
     (with-current-buffer eglot-childframe--content-buffer
       (setq-local cursor-type nil)
       (setq-local cursor-in-non-selected-windows nil)
       (setq-local mode-line-format nil)
-      (setq-local header-line-format nil))
+      (setq-local header-line-format nil))))
 
   ;; finally show frame
-  (make-frame-visible eglot-childframe--frame)))
+  (make-frame-visible eglot-childframe--frame))
 
 (defun eglot-childframe--display-help (&rest _)
   "Display help at point."
@@ -162,7 +162,7 @@
             (insert blurb)
             (goto-char 1)
 
-            (setq eglot-childframe-restore-keymap-fn
+            (setq eglot-childframe--restore-keymap-fn
                   (set-transient-map
                    eglot-childframe-frame-map t #'eglot-childframe-hide)))))
 
@@ -186,7 +186,7 @@
     (goto-char loc)
 
     (with-current-buffer buf
-      (setq eglot-childframe-restore-keymap-fn
+      (setq eglot-childframe--restore-keymap-fn
             (set-transient-map
              eglot-childframe-frame-map t #'eglot-childframe-hide))))))
 
@@ -319,25 +319,18 @@
 
 ;; misc
 
-(defun eglot-childframe-help-frame-default-position (width &rest _)
+(defun eglot-childframe-help-frame-default-position (&rest _)
   (if (eq (window-at 0 0) (selected-window))
       ;; current window on the left, display at the top right corner
       (cons -1 0)
-    (cons 10 0)))
+    (cons 5 0)))
 
 (defun eglot-childframe-xref-frame-default-position (width height)
-  (let ((cframe-width (+ 20 (* eglot-childframe-xref-frame-width (default-font-width))))
-        (cframe-height (+ 10 (* eglot-childframe-xref-frame-width (default-font-width))))
-
-        (frame-width (frame-inner-width))
-        (frame-height (frame-inner-height))
-
-        (symbol-at-point-pos (save-excursion
+  (let ((symbol-at-point-pos (save-excursion
                               (beginning-of-thing 'symbol)
-                              (window-absolute-pixel-position)))
-        x y)
-    ()
-    ))
+                              (window-absolute-pixel-position))))
+    (cons (+ (default-font-height) (car symbol-at-point-pos))
+          (cdr symbol-at-point-pos))))
 
 
 
