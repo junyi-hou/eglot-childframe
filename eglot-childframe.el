@@ -27,7 +27,7 @@
   :type 'integer
   :group 'eglot-childframe)
 
-(defcustom eglot-childframe-help-frame-width 70
+(defcustom eglot-childframe-help-frame-width 80
   "Default width (in pixel) for the frame displaying help information."
   :type 'integer
   :group 'eglot-childframe)
@@ -138,6 +138,13 @@
     ;; call display function to display content
     (setq eglot-childframe--content-window (selected-window))
     (funcall display-fun args)
+
+    ;; deal with buffer-local-variables
+    (with-current-buffer eglot-childframe--content-buffer
+      (setq-local cursor-type nil)
+      (setq-local cursor-in-non-selected-windows nil)
+      (setq-local mode-line-format nil)
+      (setq-local header-line-format nil))
 
   ;; finally show frame
   (make-frame-visible eglot-childframe--frame)))
@@ -315,10 +322,7 @@
 (defun eglot-childframe-help-frame-default-position (width &rest _)
   (if (eq (window-at 0 0) (selected-window))
       ;; current window on the left, display at the top right corner
-      (cons (- (frame-outer-width)
-               (* eglot-childframe-help-frame-width (default-font-width))
-               20)
-            0)
+      (cons -1 0)
     (cons 10 0)))
 
 (defun eglot-childframe-xref-frame-default-position (width height)
