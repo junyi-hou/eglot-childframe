@@ -198,33 +198,36 @@
   ;;   (user-error "argument is not an xref-item"))
 
   (with-selected-window eglot-childframe--content-window
-   (let* ((marker (save-excursion
-                   (xref-location-marker (xref-item-location xref))))
-          (xref-buffer (marker-buffer marker))
-          (loc (marker-position marker)))
-    (setq eglot-childframe--current-xref xref)
+    (let* ((xref-loc (xref-item-location xref))
+           (xref-file (xref-location-group xref-loc))
+           (xref-line (xref-location-line xref-loc)))
+      (setq eglot-childframe--current-xref xref)
 
-    (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
-      (erase-buffer)
-      (insert (with-current-buffer xref-buffer (buffer-string)))
-      (delay-mode-hooks
-        (funcall (with-current-buffer xref-buffer major-mode))
-        (display-line-numbers-mode)
-        (setq-local display-line-numbers t)
-        (turn-on-font-lock)
-        (font-lock-ensure))
+      (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
+        (erase-buffer)
+        ;; FIXME: how to write file content to a buffer again?
+        ;; (insert (file-content xref-file))
+        (delay-mode-hooks
+          (let ((inhibit-message t)
+                (buffer-file-name xref-file))
+            (set-auto-mode)
+            (display-line-numbers-mode)
+            (setq-local display-line-numbers t)
+            (turn-on-font-lock)
+            (font-lock-ensure)))
 
-      (setq eglot-childframe--restore-keymap-fn
-            (set-transient-map
-             eglot-childframe-frame-map t #'eglot-childframe-hide)))
+        (setq eglot-childframe--restore-keymap-fn
+              (set-transient-map
+               eglot-childframe-frame-map t #'eglot-childframe-hide)))
 
-    (switch-to-buffer eglot-childframe--content-buffer)
-    (goto-char loc)
-    ;; (evil-scroll-line-to-center (line-number-at-pos loc))
-    (let ((beg (line-beginning-position))
-          (end (line-end-position)))
-      (add-face-text-property beg end 'region t))
-    )))
+      (switch-to-buffer eglot-childframe--content-buffer)
+      ;; FIXME how to go from line number to loc?
+      (goto-char 1)
+      (line-move xref-line)
+
+      (let ((beg (line-beginning-position))
+            (end (line-end-position)))
+        (add-face-text-property beg end 'region t)))))
 
 (defun eglot-childframe--display-peek (xrefs)
   "Disply peeks for `symbol-at-point'."
@@ -244,16 +247,16 @@
           (erase-buffer)
           (xref--insert-xrefs xref-alist))))
 
-        (switch-to-buffer eglot-childframe--control-buffer)
+    (switch-to-buffer eglot-childframe--control-buffer)
 
-        ;; format control panel
-        (setq mode-line-format nil)
-        ;; create indicator
-        (goto-char (point-min))
-        (let* ((_ (xref--search-property 'xref-item))
-               (beg (line-beginning-position))
-               (end (line-end-position)))
-          (eglot-childframe--select-xref beg end))))
+    ;; format control panel
+    (setq mode-line-format nil)
+    ;; create indicator
+    (goto-char (point-min))
+    (let* ((_ (xref--search-property 'xref-item))
+           (beg (line-beginning-position))
+           (end (line-end-position)))
+      (eglot-childframe--select-xref beg end))))
 
 ;; ported from eshell
 (defun eglot-childframe-flatten-list (args)
@@ -282,15 +285,9 @@
    (let ((fn eglot-childframe--restore-keymap-fn))
       (setq eglot-childframe--restore-keymap-fn nil)
       (funcall fn)))
-  ;; kill frame, buffer and window
-  ;; (kill-buffer eglot-childframe--content-buffer)
-  ;; (delete-window eglot-childframe--content-window)
 
-  ;; (when (memq eglot-childframe--control-buffer (buffer-list eglot-childframe--frame))
-  ;;   (kill-buffer eglot-childframe--control-buffer)
-  ;;   (delete-window eglot-childframe--control-window))
-
-  (delete-frame eglot-childframe--frame)
+  (when eglot-childframe--frame
+   (delete-frame eglot-childframe--frame))
   (setq eglot-childframe--frame nil))
 
 (defun eglot-childframe-command (fn &rest args)
@@ -368,7 +365,8 @@
       (cons -1 0)
     (cons 5 0)))
 
-(defun eglot-childframe-xref-frame-default-position (&rest _)
+(defun eglot-childframe-xref-frame-default-position (width height)
+  ;; use posframe's poshandler should work
   (let ((symbol-at-point-pos (save-excursion
                               (beginning-of-thing 'symbol)
                               (window-absolute-pixel-position))))
