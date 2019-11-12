@@ -4,7 +4,8 @@
 ;;; Code:
 
 (defgroup eglot-childframe nil
-  "Customization group for `eglot-childframe'.")
+  "Customization group for `eglot-childframe'."
+  :group 'eglot)
 
 (defcustom eglot-childframe-frame-map
   (let ((map (make-sparse-keymap)))
@@ -34,7 +35,7 @@
 
 (defcustom eglot-childframe-help-frame-position-fn
   #'eglot-childframe-help-frame-default-position
-  "The function to set help frame position.  Should be a function with arguments width and height of the frame, and return a cons cell of the X-Y coordinate of the frame.  e.g.
+  "The function to set help frame position.  Should be a function that takes no argument, and return a cons cell of the X-Y coordinate of the frame.  e.g.
 (lambda (&rest _) (0 . 0)) will always display the help frame at the top-left corner of the current frame."
   :type 'function
   :group 'eglot-childframe)
@@ -51,7 +52,7 @@
 
 (defcustom eglot-childframe-xref-frame-position-fn
   #'eglot-childframe-xref-frame-default-position
-  "The function to set xref frame position.  Should be a function with arguments width and height of the frame, and return a cons cell of the X-Y coordinate of the frame.  e.g.
+  "The function to set xref frame position.  Should be a function that takes no argument and return a cons cell of the X-Y coordinate of the frame.  e.g.
 (lambda (&rest _) (0 . 0)) will always display the help frame at the top-left corner of the current frame."
   :type 'function
   :group 'eglot-childframe)
@@ -143,7 +144,7 @@
                               (height . ,height)))))
 
   (let ((pos (if (functionp position)
-                 (apply position `(,width ,height))
+                 (funcall position)
                position)))
     ;; follow snails.el
     (with-selected-frame eglot-childframe--frame
@@ -155,8 +156,7 @@
 
       ;; move frame to desirable position
       (set-frame-position eglot-childframe--frame (car pos) (cdr pos))
-      (set-face-background 'internal-border
-                           "gray80" eglot-childframe--frame)
+      (set-face-background 'internal-border "gray80" eglot-childframe--frame)
 
       ;; call display function to display content
       (setq eglot-childframe--content-window (selected-window))
@@ -360,13 +360,13 @@
 
 ;; misc
 
-(defun eglot-childframe-help-frame-default-position (&rest _)
+(defun eglot-childframe-help-frame-default-position ()
   (if (eq (window-at 0 0) (selected-window))
       ;; current window on the left, display at the top right corner
       (cons -1 0)
     (cons 5 0)))
 
-(defun eglot-childframe-xref-frame-default-position (width height)
+(defun eglot-childframe-xref-frame-default-position ()
   (let* ((symbol-at-point-pos (save-excursion
                                 (beginning-of-thing 'symbol)
                                 (window-absolute-pixel-position)))
@@ -389,6 +389,7 @@
      ;; different from case 1, we do not want to simply shift the whole childframe up,
      ;; which will cover the point position of the parent frame. Instead, we scroll
      ;; the parent window up and generate enough room for the child frame
+     ;; TODO: implement this
      ((>= cf-bottom-edge f-height)
       (cons x (- y (- cf-bottom-edge f-height) 10)))
 
