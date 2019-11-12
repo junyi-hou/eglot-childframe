@@ -34,7 +34,7 @@
   :group 'eglot-childframe)
 
 (defcustom eglot-childframe-help-frame-position-fn
-  #'eglot-childframe-help-frame-default-position
+  #'eglot-childframe-help-frame-default-position-fn
   "The function to set help frame position.  Should be a function that takes no argument, and return a cons cell of the X-Y coordinate of the frame.  e.g.
 (lambda (&rest _) (0 . 0)) will always display the help frame at the top-left corner of the current frame."
   :type 'function
@@ -51,7 +51,7 @@
   :group 'eglot-childframe)
 
 (defcustom eglot-childframe-xref-frame-position-fn
-  #'eglot-childframe-xref-frame-default-position
+  #'eglot-childframe-xref-frame-default-position-fn
   "The function to set xref frame position.  Should be a function that takes no argument and return a cons cell of the X-Y coordinate of the frame.  e.g.
 (lambda (&rest _) (0 . 0)) will always display the help frame at the top-left corner of the current frame."
   :type 'function
@@ -360,13 +360,13 @@
 
 ;; misc
 
-(defun eglot-childframe-help-frame-default-position ()
+(defun eglot-childframe-help-frame-default-position-fn ()
   (if (eq (window-at 0 0) (selected-window))
       ;; current window on the left, display at the top right corner
       (cons -1 0)
     (cons 5 0)))
 
-(defun eglot-childframe-xref-frame-default-position ()
+(defun eglot-childframe-xref-frame-default-position-fn ()
   (let* ((symbol-at-point-pos (save-excursion
                                 (beginning-of-thing 'symbol)
                                 (window-absolute-pixel-position)))
