@@ -389,9 +389,14 @@
      ;; different from case 1, we do not want to simply shift the whole childframe up,
      ;; which will cover the point position of the parent frame. Instead, we scroll
      ;; the parent window up and generate enough room for the child frame
-     ;; TODO: implement this
      ((>= cf-bottom-edge f-height)
-      (cons x (- y (- cf-bottom-edge f-height) 10)))
+      (let* ((pixel-needed (- cf-bottom-edge f-height))
+             ;; +3 - takes into account the minibuffer and the mode-line
+             (line-needed (+ 3 (/ (abs pixel-needed) (default-font-height)))))
+        (evil-scroll-line-down line-needed)
+        ;; now we should be in case 1
+        (eglot-childframe-xref-frame-default-position)
+        ))
 
      ;; case 3: well within the premise of the current frame
      (t (cons x y)))))
