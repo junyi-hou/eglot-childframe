@@ -343,9 +343,9 @@
       ;; update xref
       (setq eglot-childframe--current-xref xref)
 
-      ;; HACK: depend on evil
       (with-selected-window eglot-childframe--control-window
-        (evil-scroll-line-to-center (line-number-at-pos beg)))
+        (goto-char beg)
+        (recenter nil))
 
       ;; display xref in the content window
       (eglot-childframe--peek xref))))
