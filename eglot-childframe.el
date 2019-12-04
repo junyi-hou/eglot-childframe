@@ -23,6 +23,11 @@
   :type 'keymap
   :group 'eglot-childframe)
 
+(defcustom eglot-childframe-mode-map (make-sparse-keymap)
+  "Keymap for calling eglot-childframe functions"
+  :type 'keymap
+  :group 'eglot-childframe)
+
 (defcustom eglot-childframe-help-frame-height 30
   "Default height (in pixel) for the frame displaying help information."
   :type 'integer
@@ -57,6 +62,10 @@
   :type 'function
   :group 'eglot-childframe)
 
+(define-minor-mode eglot-childframe-mode
+  "Minor mode to display eglot help, ref and def in childframes."
+  nil nil eglot-childframe-mode-map)
+
 ;;;###autoload
 (defun eglot-childframe-help ()
   "Display help for `symbol-at-point'."
@@ -87,7 +96,9 @@
    eglot-childframe-xref-frame-height
    #'eglot-childframe--display-peek (eglot-childframe--ref-at-point 'references)))
 
+;;; ======================================================================
 ;; internal
+;;; ======================================================================
 
 (defvar eglot-childframe--frame nil)
 
@@ -120,21 +131,9 @@
 
 (defvar-local eglot-childframe--restore-keymap-fn nil)
 
-(defun eglot-childframe--ref-at-point (kind)
-  "Get a list of xref references item of KIND (e.g., definitions, references, etc.)."
-  (let* ((id (xref-backend-identifier-at-point 'eglot))
-         (xrefs (funcall (intern (format "xref-backend-%s" kind))
-                         (xref-find-backend)
-                         id)))
-    (if xrefs
-        ;; first remove the distracting highlight in the summary of xrefs.
-        (progn
-          (seq-doseq (xref xrefs)
-            (let ((summ (xref-item-summary xref)))
-              (font-lock--remove-face-from-text-property
-               0 (length summ) 'face 'highlight summ)))
-          xrefs)
-      (user-error (format "No %s found at point" kind)))))
+;;; ===============================
+;;  frame creation
+;;; ===============================
 
 (defun eglot-childframe--create-frame (position width height display-fun &rest args)
   "Create a child frame at POSITION with WIDTH and HEIGHT.  After child frame is created, call DISPLAY-FUN with ARGS in the child frame to generate contents to be displayed in the child frame."
@@ -162,34 +161,58 @@
       (setq eglot-childframe--content-window (selected-window))
       (apply display-fun args)
 
-    ;; deal with buffer-local-variables
-    (with-current-buffer eglot-childframe--content-buffer
-      (setq-local cursor-type nil)
-      (setq-local cursor-in-non-selected-windows nil)
-      (setq-local mode-line-format nil)
-      (setq-local header-line-format nil))))
+      ;; deal with buffer-local-variables
+      (with-current-buffer eglot-childframe--content-buffer
+        (setq-local cursor-type nil)
+        (setq-local cursor-in-non-selected-windows nil)
+        (setq-local mode-line-format nil)
+        (setq-local header-line-format nil))))
 
   ;; finally show frame
   (make-frame-visible eglot-childframe--frame))
 
+;;; ===============================
+;;  help-at-point
+;;; ===============================
+
 (defun eglot-childframe--display-help (&rest _)
   "Display help at point."
   (with-selected-window eglot-childframe--content-window
-      (eglot--dbind ((Hover) contents range)
-          (jsonrpc-request (eglot--current-server-or-lose) :textDocument/hover
-                           (eglot--TextDocumentPositionParams))
-        (when (seq-empty-p contents) (eglot--error "No hover info here"))
-        (let ((blurb (eglot--hover-info contents range)))
-          (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
-            (erase-buffer)
-            (insert blurb)
-            (goto-char 1)
+    (eglot--dbind ((Hover) contents range)
+        (jsonrpc-request (eglot--current-server-or-lose) :textDocument/hover
+                         (eglot--TextDocumentPositionParams))
+      (when (seq-empty-p contents) (eglot--error "No hover info here"))
+      (let ((blurb (eglot--hover-info contents range)))
+        (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
+          (erase-buffer)
+          (insert blurb)
+          (goto-char 1)
 
-            (setq eglot-childframe--restore-keymap-fn
-                  (set-transient-map
-                   eglot-childframe-frame-map t #'eglot-childframe-hide)))))
+          (setq eglot-childframe--restore-keymap-fn
+                (set-transient-map
+                 eglot-childframe-frame-map t #'eglot-childframe-hide)))))
 
     (switch-to-buffer eglot-childframe--content-buffer)))
+
+;;; ===============================
+;;  def/ref-at-point
+;;; ===============================
+
+(defun eglot-childframe--ref-at-point (kind)
+  "Get a list of xref references item of KIND (e.g., definitions, references, etc.)."
+  (let* ((id (xref-backend-identifier-at-point 'eglot))
+         (xrefs (funcall (intern (format "xref-backend-%s" kind))
+                         (xref-find-backend)
+                         id)))
+    (if xrefs
+        ;; first remove the distracting highlight in the summary of xrefs.
+        (progn
+          (seq-doseq (xref xrefs)
+            (let ((summ (xref-item-summary xref)))
+              (font-lock--remove-face-from-text-property
+               0 (length summ) 'face 'highlight summ)))
+          xrefs)
+      (user-error (format "No %s found at point" kind)))))
 
 (defun eglot-childframe--peek (xref)
   "Peek XREF."
@@ -259,36 +282,21 @@
            (end (line-end-position)))
       (eglot-childframe--select-xref beg end))))
 
-;; ported from eshell
-(defun eglot-childframe-flatten-list (args)
-  "Flatten any lists within ARGS, so that there are no sublists."
-  (let ((new-list (list t)))
-    (dolist (a args)
-      (if (and (listp a)
-	       (listp (cdr a)))
-	  (nconc new-list (eglot-childframe-flatten-list a))
-	(nconc new-list (list a))))
-    (cdr new-list)))
-
-(defun eglot-childframe--select-xref (beg end)
-  "Create overlay of summary of xref between BEG and END in order to set it apart to other xrefs."
-  (mapc 'delete-overlay (eglot-childframe-flatten-list (overlay-lists)))
-  (let ((ov (make-overlay beg end)))
-    (overlay-put ov 'face '(:box t))))
-
+;;; ===============================
 ;; commands
+;;; ===============================
 
 (defun eglot-childframe-hide ()
   "Hide childframe."
   (interactive)
   ;; deactivate keymaps
   (when eglot-childframe--restore-keymap-fn
-   (let ((fn eglot-childframe--restore-keymap-fn))
+    (let ((fn eglot-childframe--restore-keymap-fn))
       (setq eglot-childframe--restore-keymap-fn nil)
       (funcall fn)))
 
   (when eglot-childframe--frame
-   (delete-frame eglot-childframe--frame))
+    (delete-frame eglot-childframe--frame))
   (setq eglot-childframe--frame nil))
 
 (defun eglot-childframe-command (fn &rest args)
@@ -358,7 +366,25 @@
   (interactive)
   (eglot-childframe-move-xref 'prev))
 
+;;; ===============================
 ;; misc
+;;; ===============================
+
+(defun eglot-childframe-flatten-list (args)
+  "Flatten any lists within ARGS, so that there are no sublists.  Ported from eshell."
+  (let ((new-list (list t)))
+    (dolist (a args)
+      (if (and (listp a)
+	             (listp (cdr a)))
+	        (nconc new-list (eglot-childframe-flatten-list a))
+	      (nconc new-list (list a))))
+    (cdr new-list)))
+
+(defun eglot-childframe--select-xref (beg end)
+  "Create overlay of summary of xref between BEG and END in order to set it apart to other xrefs."
+  (mapc 'delete-overlay (eglot-childframe-flatten-list (overlay-lists)))
+  (let ((ov (make-overlay beg end)))
+    (overlay-put ov 'face '(:box t))))
 
 (defun eglot-childframe-help-frame-default-position-fn ()
   (if (eq (window-at 0 0) (selected-window))
