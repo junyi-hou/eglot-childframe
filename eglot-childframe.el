@@ -1,6 +1,10 @@
 ;;; eglot-childframe.el --- child frame frontend for eglot -*- lexical-binding: t; -*-;; Package-requires: ((emacs "26"))
 ;;; Commentary:
 
+;; TODO
+;; 1. multi-monitor support
+;; 2. integrate elisp backend
+
 ;;; Code:
 
 (defgroup eglot-childframe nil
@@ -45,7 +49,7 @@
   :type 'function
   :group 'eglot-childframe)
 
-(defcustom eglot-childframe-xref-frame-height 25
+(defcustom eglot-childframe-xref-frame-height 30
   "Default height (in pixel) for the frame displaying xref."
   :type 'integer
   :group 'eglot-childframe)
