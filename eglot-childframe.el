@@ -66,9 +66,33 @@
   :type 'function
   :group 'eglot-childframe)
 
+(defcustom eglot-childframe-backend-test-alist
+  '(((derived-mode-p 'emacs-lisp-mode) . elisp)
+    ((memq 'eglot--managed-mode
+           (seq-filter
+            (lambda (mode)
+              (ignore-errors
+                (and (symbolp mode)
+                     (symbol-value mode))))
+            minor-mode-list))
+     . eglot))
+  "An alist of tests for determining backend used by `eglot-childframe'.  The tests are ran sequentially from top to bottom."
+  :type 'list
+  :group 'eglot-childframe)
+
+(defcustom eglot-childframe-backend-help-fn-alist
+  '(((eq eglot-childframe--current-backend 'eglot) . eglot-childframe-eglot-help)
+    ((eq eglot-childframe--current-backend 'elisp) . eglot-childframe-elisp-help))
+  "Alist of functions to retrieve help text in the childframe for different backends."
+  :type 'list
+  :group 'eglot-childframe)
+
 (define-minor-mode eglot-childframe-mode
   "Minor mode to display eglot help, ref and def in childframes."
-  nil nil eglot-childframe-mode-map)
+  nil nil eglot-childframe-mode-map
+  (if eglot-childframe-mode
+      (eglot-childframe--backend-detection)
+    (setq eglot-childframe--current-backend nil)))
 
 ;;;###autoload
 (defun eglot-childframe-help ()
@@ -134,6 +158,24 @@
     (bottom-divider-width . 2)))
 
 (defvar-local eglot-childframe--restore-keymap-fn nil)
+
+(defmacro eglot-childframe--run-alist-tests (alist)
+  "Perform the test specified in the car's of the ALIST, return the corresponding cdr of the first passed the corresponding test.  If none of the test passes, return nil."
+  ;; cf. the stackoverflow question: shorturl.at/mrJT2
+  ;; when expand, alist is expand to the symbol of the passed argument, but not the
+  ;; *value* of the argument, therefore we need to use (eval alist) to get the value
+  ;; of the passed argument
+  `(cond ,@(mapcar (lambda (test) `(,(car test) ',(cdr test))) (eval alist))))
+
+;;; ===============================
+;;  backend detection
+;;; ===============================
+
+(defun eglot-childframe--backend-detection ()
+  "Set `eglot-childframe--current-backend' using the test specified in `eglot-childframe-backend-test-alist'."
+  (let ((bkend (eglot-childframe--run-alist-tests
+                eglot-childframe-backend-test-alist)))
+    (setq eglot-childframe--current-backend bkend)))
 
 ;;; ===============================
 ;;  frame creation
@@ -301,7 +343,9 @@
 
   (when eglot-childframe--frame
     (delete-frame eglot-childframe--frame))
-  (setq eglot-childframe--frame nil))
+  (setq eglot-childframe--frame nil
+        eglot-childframe--current-xref nil
+        eglot-childframe--content-buffer nil))
 
 (defun eglot-childframe-command (fn &rest args)
   (with-selected-window eglot-childframe--content-window
