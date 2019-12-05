@@ -391,10 +391,11 @@
     (overlay-put ov 'face '(:box t))))
 
 (defun eglot-childframe-help-frame-default-position-fn ()
-  (if (eq (window-at 0 0) (selected-window))
-      ;; current window on the left, display at the top right corner
-      (cons -1 0)
-    (cons 5 0)))
+  (let ((frame-edges (frame-edges)))
+    (if (eq (window-at 0 0) (selected-window))
+        ;; current window on the left, display at the top right corner
+        (cons (nth 2 frame-edges) (nth 1 frame-edges))
+      (cons (nth 0 frame-edges) (nth 1 frame-edges)))))
 
 (defun eglot-childframe-xref-frame-default-position-fn ()
   (let* ((symbol-at-point-pos (save-excursion
