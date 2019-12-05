@@ -265,7 +265,8 @@
         (insert help-text)
         (goto-char 1)
 
-        (setq eglot-childframe--restore-keymap-fn
+        (setq display-line-numbers nil
+              eglot-childframe--restore-keymap-fn
               (set-transient-map
                eglot-childframe-frame-map t #'eglot-childframe-hide)))))
 
