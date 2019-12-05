@@ -222,7 +222,7 @@
 ;;; ===============================
 
 (defun eglot-childframe-eglot-help ()
-  "Return help buffer contents using eglot backend."
+  "Return the help text for `symbol-at-point' for the `eglot' backend."
   (eglot--dbind ((Hover) contents range)
       (jsonrpc-request (eglot--current-server-or-lose) :textDocument/hover
                        (eglot--TextDocumentPositionParams))
@@ -230,29 +230,19 @@
     (eglot--hover-info contents range)))
 
 (defun eglot-childframe-elisp-help ()
-  "Insert the help text for `symbol-at-point' for the `elisp' backend."
-  (interactive)
+  "Return the help text for `symbol-at-point' for the `elisp' backend."
   (if (featurep 'helpful)
-      ;; if helpful mode is enabled,
-      ;; 1. setup helpful--buffer aparatas
-      ;; 2. update the buffer by calling `helpful-update'
-
       (let* ((symbol (symbol-at-point))
-             (callable-p (not (helpful--variable-p symbol))))
-        (with-temp-buffer
-          (helpful-mode)
-          (setq helpful--sym symbol)
-          (setq helpful--callable-p callable-p)
-          (setq helpful--start-buffer (current-buffer))
-          (setq helpful--associated-buffer (current-buffer))
-          (if (helpful--primitive-p symbol callable-p)
-              (setq-local comment-start "//")
-            (setq-local comment-start ";"))
+             (callable-p
+              ;; TODO: how to handle case where symbol is bound to both a variable and
+              ;; a function?
+              ;; y-or-n-p does not work - it will closed the childframe immediately
+              (not (helpful--variable-p symbol))))
+        (with-current-buffer (helpful--buffer symbol callable-p)
           (helpful-update)
-          (message (buffer-string))))
-
+          (buffer-string)))
     ;; TODO: implement this
-    ;; if helpful mode is not enabled,
+    ;; if helpful mode is not enabled, use built-in help-mode
     ))
 
 (defun eglot-childframe--display-help ()
