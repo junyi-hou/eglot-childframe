@@ -439,19 +439,19 @@
 ;; misc
 ;;; ===============================
 
-(defun eglot-childframe-flatten-list (args)
+(defun eglot-childframe--flatten-list (args)
   "Flatten any lists within ARGS, so that there are no sublists.  Ported from eshell."
   (let ((new-list (list t)))
     (dolist (a args)
       (if (and (listp a)
 	             (listp (cdr a)))
-	        (nconc new-list (eglot-childframe-flatten-list a))
+	        (nconc new-list (eglot-childframe--flatten-list a))
 	      (nconc new-list (list a))))
     (cdr new-list)))
 
 (defun eglot-childframe--select-xref (beg end)
   "Create overlay of summary of xref between BEG and END in order to set it apart to other xrefs."
-  (mapc 'delete-overlay (eglot-childframe-flatten-list (overlay-lists)))
+  (mapc 'delete-overlay (eglot-childframe--flatten-list (overlay-lists)))
   (let ((ov (make-overlay beg end)))
     (overlay-put ov 'face '(:box t))))
 
