@@ -221,24 +221,55 @@
 ;;  help-at-point
 ;;; ===============================
 
-(defun eglot-childframe--display-help (&rest _)
+(defun eglot-childframe-eglot-help ()
+  "Return help buffer contents using eglot backend."
+  (eglot--dbind ((Hover) contents range)
+      (jsonrpc-request (eglot--current-server-or-lose) :textDocument/hover
+                       (eglot--TextDocumentPositionParams))
+    (when (seq-empty-p contents) (eglot--error "No hover info here"))
+    (eglot--hover-info contents range)))
+
+(defun eglot-childframe-elisp-help ()
+  "Insert the help text for `symbol-at-point' for the `elisp' backend."
+  (interactive)
+  (if (featurep 'helpful)
+      ;; if helpful mode is enabled,
+      ;; 1. setup helpful--buffer aparatas
+      ;; 2. update the buffer by calling `helpful-update'
+
+      (let* ((symbol (symbol-at-point))
+             (callable-p (not (helpful--variable-p symbol))))
+        (with-temp-buffer
+          (helpful-mode)
+          (setq helpful--sym symbol)
+          (setq helpful--callable-p callable-p)
+          (setq helpful--start-buffer (current-buffer))
+          (setq helpful--associated-buffer (current-buffer))
+          (if (helpful--primitive-p symbol callable-p)
+              (setq-local comment-start "//")
+            (setq-local comment-start ";"))
+          (helpful-update)
+          (message (buffer-string))))
+
+    ;; TODO: implement this
+    ;; if helpful mode is not enabled,
+    ))
+
+(defun eglot-childframe--display-help ()
   "Display help at point."
-  (with-selected-window eglot-childframe--content-window
-    (eglot--dbind ((Hover) contents range)
-        (jsonrpc-request (eglot--current-server-or-lose) :textDocument/hover
-                         (eglot--TextDocumentPositionParams))
-      (when (seq-empty-p contents) (eglot--error "No hover info here"))
-      (let ((blurb (eglot--hover-info contents range)))
-        (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
-          (erase-buffer)
-          (insert blurb)
-          (goto-char 1)
+  (let ((help-text (funcall (eglot-childframe--run-alist-tests
+                             eglot-childframe-backend-help-fn-alist))))
+    (with-selected-window eglot-childframe--content-window
+      (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
+        (erase-buffer)
+        (insert help-text)
+        (goto-char 1)
 
-          (setq eglot-childframe--restore-keymap-fn
-                (set-transient-map
-                 eglot-childframe-frame-map t #'eglot-childframe-hide)))))
+        (setq eglot-childframe--restore-keymap-fn
+              (set-transient-map
+               eglot-childframe-frame-map t #'eglot-childframe-hide)))))
 
-    (switch-to-buffer eglot-childframe--content-buffer)))
+  (switch-to-buffer eglot-childframe--content-buffer))
 
 ;;; ===============================
 ;;  def/ref-at-point
