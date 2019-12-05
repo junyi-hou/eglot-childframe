@@ -376,8 +376,7 @@
   (when eglot-childframe--frame
     (delete-frame eglot-childframe--frame))
   (setq eglot-childframe--frame nil
-        eglot-childframe--current-xref nil
-        eglot-childframe--content-buffer nil))
+        eglot-childframe--current-xref nil))
 
 (defun eglot-childframe-command (fn &rest args)
   (with-selected-window eglot-childframe--content-window
