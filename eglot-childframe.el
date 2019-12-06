@@ -456,10 +456,11 @@
     (overlay-put ov 'face '(:box t))))
 
 (defun eglot-childframe-help-frame-default-position-fn ()
-  (if (eq (window-at 0 0) (selected-window))
-      ;; current window on the left, display at the top right corner
-      (cons -1 0)
-    (cons 5 0)))
+  (let ((frame-edges (frame-edges)))
+    (if (eq (window-at 0 0) (selected-window))
+        ;; current window on the left, display at the top right corner
+        (cons (nth 2 frame-edges) (nth 1 frame-edges))
+      (cons (nth 0 frame-edges) (nth 1 frame-edges)))))
 
 (defun eglot-childframe-xref-frame-default-position-fn ()
   (let* ((symbol-at-point-pos (save-excursion
@@ -471,18 +472,20 @@
          (cf-height (frame-pixel-height eglot-childframe--frame))
          (cf-right-edge (+ x cf-width))
          (cf-bottom-edge (+ y cf-height))
-         (f-width (frame-pixel-width))
-         (f-height (frame-pixel-height)))
+         ;; parent frame width/height need to consider the possibility of secondary
+         ;; monitor
+         (frame-edges (frame-edges))
+         (f-width (+ (frame-pixel-width) (nth 0 frame-edges)))
+         (f-height (+ (frame-pixel-height) (nth 1 frame-edges))))
     (cond
-     ;; case 1: frame is too wide, note that this could only happen on the right edge
-     ;; with reasonable value of `eglot-childframe-xref-frame-width' (e.g., < 100),
+     ;; case 1: childframe is too wide, note that this could only happen on the right
+     ;; edge with reasonable value of `eglot-childframe-xref-frame-width' (e.g., < 100),
      ;; shifting the whole child frame to the left will not cause problem
      ((>= cf-right-edge f-width)
       (cons (- x (- cf-right-edge f-width) 10) y))
-
-     ;; case 2: frame is too tall, note that this could only happen on the bottom edge
-     ;; different from case 1, we do not want to simply shift the whole childframe up,
-     ;; which will cover the point position of the parent frame. Instead, we scroll
+     ;; case 2: childframe is too tall, note that this could only happen on the bottom
+     ;; edge different from case 1, we do not want to simply shift the whole childframe
+     ;; up, which will cover the point position of the parent frame. Instead, we scroll
      ;; the parent window up and generate enough room for the child frame
      ((>= cf-bottom-edge f-height)
       (let* ((pixel-needed (- cf-bottom-edge f-height))
