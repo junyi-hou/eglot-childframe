@@ -80,7 +80,7 @@
   :type 'list
   :group 'eglot-childframe)
 
-(defcustom eglot-childframe-backend-help-fn-alist
+(defcustom eglot-childframe-help-backend-fn-alist
   '(((eq eglot-childframe--current-backend 'eglot) . eglot-childframe-eglot-help)
     ((eq eglot-childframe--current-backend 'elisp) . eglot-childframe-elisp-help))
   "Alist of functions to retrieve help text in the childframe for different backends."
@@ -248,17 +248,16 @@
 (defun eglot-childframe--display-help ()
   "Display help at point."
   (let ((help-text (funcall (eglot-childframe--run-alist-tests
-                             eglot-childframe-backend-help-fn-alist))))
-    (with-selected-window eglot-childframe--content-window
-      (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
-        (erase-buffer)
-        (insert help-text)
-        (goto-char 1)
+                             eglot-childframe-help-backend-fn-alist))))
+    (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
+      (erase-buffer)
+      (insert help-text)
+      (goto-char 1)
 
-        (setq display-line-numbers nil
-              eglot-childframe--restore-keymap-fn
-              (set-transient-map
-               eglot-childframe-frame-map t #'eglot-childframe-hide)))))
+      (setq display-line-numbers nil
+            eglot-childframe--restore-keymap-fn
+            (set-transient-map
+             eglot-childframe-frame-map t #'eglot-childframe-hide))))
 
   (switch-to-buffer eglot-childframe--content-buffer))
 
