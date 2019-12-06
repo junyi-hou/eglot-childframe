@@ -87,6 +87,13 @@
   :type 'list
   :group 'eglot-childframe)
 
+(defcustom eglot-childframe-xref-analyze-fn-alist
+  '(((eq eglot-childframe--current-backend 'eglot) . eglot-childframe-eglot-analyze)
+    ((eq eglot-childframe--current-backend 'elisp) . eglot-childframe-elisp-analyze))
+  "Alist of functions to retrieve help text in the childframe for different backends."
+  :type 'list
+  :group 'eglot-childframe)
+
 (define-minor-mode eglot-childframe-mode
   "Minor mode to display eglot help, ref and def in childframes."
   nil nil eglot-childframe-mode-map
@@ -267,7 +274,7 @@
 
 (defun eglot-childframe--ref-at-point (kind)
   "Get a list of xref references item of KIND (e.g., definitions, references, etc.)."
-  (let* ((id (xref-backend-identifier-at-point 'eglot))
+  (let* ((id (xref-backend-identifier-at-point eglot-childframe--current-backend))
          (xrefs (funcall (intern (format "xref-backend-%s" kind))
                          (xref-find-backend)
                          id)))
@@ -284,70 +291,109 @@
 (defun eglot-childframe--peek (xref)
   "Peek XREF."
 
-  ;; debug
-  ;; (unless (xref-item-p xref)
-  ;;   (user-error "argument is not an xref-item"))
+  (let* ((xref-loc (xref-item-location xref))
+         (xref-file (xref-location-group xref-loc))
+         (xref-line (xref-location-line xref-loc)))
+    (setq eglot-childframe--current-xref xref)
 
-  (with-selected-window eglot-childframe--content-window
-    (let* ((xref-loc (xref-item-location xref))
-           (xref-file (xref-location-group xref-loc))
-           (xref-line (xref-location-line xref-loc)))
-      (setq eglot-childframe--current-xref xref)
+    (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
+      (erase-buffer)
+      (insert-file-contents xref-file)
+      (delay-mode-hooks
+        (let ((inhibit-message t)
+              (buffer-file-name xref-file))
+          (set-auto-mode)
+          (display-line-numbers-mode)
+          (setq-local display-line-numbers t)
+          (turn-on-font-lock)
+          (font-lock-ensure)))
 
-      (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
-        (erase-buffer)
-        (insert-file-contents xref-file)
-        (delay-mode-hooks
-          (let ((inhibit-message t)
-                (buffer-file-name xref-file))
-            (set-auto-mode)
-            (display-line-numbers-mode)
-            (setq-local display-line-numbers t)
-            (turn-on-font-lock)
-            (font-lock-ensure)))
+      (setq eglot-childframe--restore-keymap-fn
+            (set-transient-map
+             eglot-childframe-frame-map t #'eglot-childframe-hide)))
 
-        (setq eglot-childframe--restore-keymap-fn
-              (set-transient-map
-               eglot-childframe-frame-map t #'eglot-childframe-hide)))
+    (switch-to-buffer eglot-childframe--content-buffer)
+    ;; FIXME how to go from line number to loc?
+    (goto-char 1)
+    (line-move (1- xref-line))
 
-      (switch-to-buffer eglot-childframe--content-buffer)
-      ;; FIXME how to go from line number to loc?
-      (goto-char 1)
-      (line-move (1- xref-line))
-
-      (let ((beg (line-beginning-position))
-            (end (line-end-position)))
-        (add-face-text-property beg end 'region t)
-        (line-move (* 2 (/ eglot-childframe-xref-frame-height 3)) 'noerror)))))
+    (let ((beg (line-beginning-position))
+          (end (line-end-position)))
+      (add-face-text-property beg end 'region t)
+      (line-move (* 2 (/ eglot-childframe-xref-frame-height 3)) 'noerror))))
 
 (defun eglot-childframe--display-peek (xrefs)
   "Disply peeks for `symbol-at-point'."
-  (eglot-childframe--peek (car xrefs))
+  (let ((xrefs (eglot-childframe--analyze-xrefs xrefs)))
+    (eglot-childframe--peek (car xrefs))
 
-  (when (cdr xrefs)
+    (when (cdr xrefs)
 
-    ;; create control window
-    (setq eglot-childframe--control-window
-          (split-window-vertically -4))
-    (other-window 1)
+      ;; create control window
+      (setq eglot-childframe--control-window
+            (split-window-vertically -4))
+      (other-window 1)
 
-    (let ((xref-alist (xref--analyze xrefs)))
-      (with-current-buffer (get-buffer-create eglot-childframe--control-buffer)
-        (let ((inhibit-read-only t)
-              (buffer-undo-list t))
-          (erase-buffer)
-          (xref--insert-xrefs xref-alist))))
+      (let ((xref-alist (xref--analyze xrefs)))
+        (with-current-buffer (get-buffer-create eglot-childframe--control-buffer)
+          (let ((inhibit-read-only t)
+                (buffer-undo-list t))
+            (erase-buffer)
+            (xref--insert-xrefs xref-alist))))
 
-    (switch-to-buffer eglot-childframe--control-buffer)
+      (switch-to-buffer eglot-childframe--control-buffer)
 
-    ;; format control panel
-    (setq mode-line-format nil)
-    ;; create indicator
-    (goto-char (point-min))
-    (let* ((_ (xref--search-property 'xref-item))
-           (beg (line-beginning-position))
-           (end (line-end-position)))
-      (eglot-childframe--select-xref beg end))))
+      ;; format control panel
+      (setq mode-line-format nil)
+      ;; create indicator
+      (goto-char (point-min))
+      (let* ((_ (xref--search-property 'xref-item))
+             (beg (line-beginning-position))
+             (end (line-end-position)))
+        (eglot-childframe--select-xref beg end)))))
+
+(defun eglot-childframe--analyze-xref (xrefs)
+  "Process XREFS."
+  ;; first set `eglot-childframe--current-backend'
+  (mapcar (eglot-childframe--run-alist-tests
+           eglot-childframe-xref-analyze-fn-alist)
+          xrefs))
+
+(defalias 'eglot-childframe-eglot-analyze #'identity)
+
+(defun eglot-childframe-elisp-analyze (xref)
+  (let* ((summ (xref-item-summary xref))
+         (xref-loc (xref-item-location xref))
+         ;; 1 - process file
+         (file (eglot-childframe--elisp-patch-file (xref-elisp-location-file xref-loc)))
+         ;; 2 - process line
+         (line (eglot-childframe--elisp-patch-line xref-loc)))
+    (xref-make summ
+               (xref-make-file-location file line 1))))
+
+(defun eglot-childframe--elisp-patch-file (fname)
+  "Return the absolute path for the library of FNAME"
+  (let ((extension (file-name-extension fname)))
+    (if (member extension '("c" "rs"))
+        ;; future-proof - support remacs
+        (format "%s/%s.%s"
+                find-function-C-source-directory
+                (file-name-base fname)
+                extension)
+      (find-library-name fname))))
+
+(defun eglot-childframe--elisp-patch-line (xref-loc)
+  "Return the line number of symbol in XREF-LOC."
+  (let* ((sym (xref-elisp-location-symbol xref-loc))
+         (sym-type (xref-elisp-location-type xref-loc))
+         (loc-info (if sym-type
+                       (find-definition-noselect sym sym-type)
+                     (find-function-noselect sym)))
+         ;; TODO: speed up by turning off mode-hook, file-local-variables, etc?
+         (buf (car loc-info)))
+    (with-current-buffer buf
+      (goto-char 1)
+      (line-number-at-pos (cdr loc-info)))))
 
 ;;; ===============================
 ;; commands
