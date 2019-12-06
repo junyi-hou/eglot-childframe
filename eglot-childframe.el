@@ -490,7 +490,8 @@
       (let* ((pixel-needed (- cf-bottom-edge f-height))
              ;; +3 - takes into account the minibuffer and the mode-line
              (line-needed (+ 3 (/ (abs pixel-needed) (default-font-height)))))
-        (evil-scroll-line-down line-needed)
+        (let ((scroll-preserve-screen-position nil))
+          (scroll-up line-needed))
         ;; now we should be in case 1
         (eglot-childframe-xref-frame-default-position)
         ))
