@@ -312,15 +312,15 @@
             (set-transient-map
              eglot-childframe-frame-map t #'eglot-childframe-hide)))
 
-    (switch-to-buffer eglot-childframe--content-buffer)
-    ;; FIXME how to go from line number to loc?
-    (goto-char 1)
-    (line-move (1- xref-line))
+    (with-selected-window eglot-childframe--content-window
+      (switch-to-buffer eglot-childframe--content-buffer)
+      (goto-char 1)
+      (line-move (1- xref-line))
 
-    (let ((beg (line-beginning-position))
-          (end (line-end-position)))
-      (add-face-text-property beg end 'region t)
-      (line-move (* 2 (/ eglot-childframe-xref-frame-height 3)) 'noerror))))
+      (let ((beg (line-beginning-position))
+            (end (line-end-position)))
+        (add-face-text-property beg end 'region t)
+        (line-move (* 2 (/ eglot-childframe-xref-frame-height 3)) 'noerror)))))
 
 (defun eglot-childframe--display-peek (xrefs)
   "Disply peeks for `symbol-at-point'."
@@ -339,18 +339,18 @@
           (let ((inhibit-read-only t)
                 (buffer-undo-list t))
             (erase-buffer)
-            (xref--insert-xrefs xref-alist))))
+            (xref--insert-xrefs xref-alist))
 
-      (switch-to-buffer eglot-childframe--control-buffer)
+          ;; format control panel
+          (setq mode-line-format nil)
 
-      ;; format control panel
-      (setq mode-line-format nil)
-      ;; create indicator
-      (goto-char (point-min))
-      (let* ((_ (xref--search-property 'xref-item))
-             (beg (line-beginning-position))
-             (end (line-end-position)))
-        (eglot-childframe--select-xref beg end)))))
+          ;; create indicator
+          (goto-char (point-min))
+          (let* ((_ (xref--search-property 'xref-item))
+                 (beg (line-beginning-position))
+                 (end (line-end-position)))
+            (eglot-childframe--select-xref beg end))))
+      (switch-to-buffer eglot-childframe--control-buffer))))
 
 (defun eglot-childframe--analyze-xrefs (xrefs)
   "Process XREFS."
