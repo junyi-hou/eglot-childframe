@@ -1,4 +1,4 @@
-;;; eglot-childframe.el --- child frame frontend for eglot -*- lexical-binding: t; -*-;; Package-requires: ((emacs "26"))
+;;; eglot-childframe.el --- child frame frontend for eglot -*- lexical-binding: t; -*-;; Package-requires: ((emacs "26") (f "0.20.0"))
 ;;; Commentary:
 
 ;; TODO
@@ -119,7 +119,7 @@
    eglot-childframe-xref-frame-position-fn
    eglot-childframe-xref-frame-width
    eglot-childframe-xref-frame-height
-   #'eglot-childframe--display-peek (eglot-childframe--ref-at-point 'definitions)))
+   #'eglot-childframe--display-peek 'definitions))
 
 ;;;###autoload
 (defun eglot-childframe-reference ()
@@ -129,7 +129,7 @@
    eglot-childframe-xref-frame-position-fn
    eglot-childframe-xref-frame-width
    eglot-childframe-xref-frame-height
-   #'eglot-childframe--display-peek (eglot-childframe--ref-at-point 'references)))
+   #'eglot-childframe--display-peek 'references))
 
 ;;; ======================================================================
 ;; internal
@@ -322,9 +322,11 @@
         (add-face-text-property beg end 'region t)
         (line-move (* 2 (/ eglot-childframe-xref-frame-height 3)) 'noerror)))))
 
-(defun eglot-childframe--display-peek (xrefs)
-  "Disply peeks for `symbol-at-point'."
-  (let ((xrefs (eglot-childframe--analyze-xrefs xrefs)))
+(defun eglot-childframe--display-peek (kind)
+  "Disply peeks for `symbol-at-point' as KIND."
+  (let ((xrefs (eglot-childframe--analyze-xrefs
+                (eglot-childframe--ref-at-point kind)
+                kind)))
     (eglot-childframe--peek (car xrefs))
 
     (when (cdr xrefs)
@@ -352,12 +354,23 @@
             (eglot-childframe--select-xref beg end))))
       (switch-to-buffer eglot-childframe--control-buffer))))
 
-(defun eglot-childframe--analyze-xrefs (xrefs)
-  "Process XREFS."
+(defun eglot-childframe--analyze-xrefs (xrefs kind)
+  "Process XREFS of KIND."
   ;; first set `eglot-childframe--current-backend'
-  (mapcar (eglot-childframe--run-alist-tests
-           eglot-childframe-xref-analyze-fn-alist)
-          xrefs))
+  (seq-filter (lambda (xref)
+                (cond (;; do not filter for definitions
+                       (eq kind 'definitions) t)
+                      (;; limit to xrefs in the current project/default-directory
+                       ;; for references
+                       (eq kind 'references)
+                       (let ((dir (or (f-full (cdr (project-current)))
+                                      (f-full default-directory)))
+                             (file (f-full
+                                    (xref-location-group (xref-item-location xref)))))
+                         (f-descendant-of-p file dir)))))
+              (mapcar (eglot-childframe--run-alist-tests
+                       eglot-childframe-xref-analyze-fn-alist)
+                      xrefs)))
 
 (defalias 'eglot-childframe-eglot-analyze #'identity)
 
