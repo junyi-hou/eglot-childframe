@@ -352,7 +352,7 @@
              (end (line-end-position)))
         (eglot-childframe--select-xref beg end)))))
 
-(defun eglot-childframe--analyze-xref (xrefs)
+(defun eglot-childframe--analyze-xrefs (xrefs)
   "Process XREFS."
   ;; first set `eglot-childframe--current-backend'
   (mapcar (eglot-childframe--run-alist-tests
