@@ -174,6 +174,8 @@
   ;; of the passed argument
   `(cond ,@(mapcar (lambda (test) `(,(car test) ',(cdr test))) (eval alist))))
 
+(defvar-local eglot-childframe--current-backend nil)
+
 ;;; ===============================
 ;;  backend detection
 ;;; ===============================
