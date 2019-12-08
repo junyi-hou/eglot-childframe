@@ -274,20 +274,14 @@
 ;;  def/ref-at-point
 ;;; ===============================
 
-(defun eglot-childframe--ref-at-point (kind)
-  "Get a list of xref references item of KIND (e.g., definitions, references, etc.)."
-  (let* ((id (xref-backend-identifier-at-point eglot-childframe--current-backend))
-         (xrefs (funcall (intern (format "xref-backend-%s" kind))
-                         (xref-find-backend)
-                         id)))
+(defun eglot-childframe--get-xrefs (kind)
+  "Get a list of xref references item of KIND (e.g., definitions, references, etc.) at point."
+  (let* ((xrefs (funcall (intern (format "xref-backend-%s" kind))
+                         eglot-childframe--current-backend
+                         (xref-backend-identifier-at-point
+                          eglot-childframe--current-backend))))
     (if xrefs
-        ;; first remove the distracting highlight in the summary of xrefs.
-        (progn
-          (seq-doseq (xref xrefs)
-            (let ((summ (xref-item-summary xref)))
-              (font-lock--remove-face-from-text-property
-               0 (length summ) 'face 'highlight summ)))
-          xrefs)
+        xrefs
       (user-error (format "No %s found at point" kind)))))
 
 (defun eglot-childframe--peek (xref)
@@ -327,7 +321,7 @@
 (defun eglot-childframe--display-peek (kind)
   "Disply peeks for `symbol-at-point' as KIND."
   (let ((xrefs (eglot-childframe--analyze-xrefs
-                (eglot-childframe--ref-at-point kind)
+                (eglot-childframe--get-xrefs kind)
                 kind)))
     (eglot-childframe--peek (car xrefs))
 
