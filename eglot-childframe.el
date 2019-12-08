@@ -365,10 +365,9 @@
                       (;; limit to xrefs in the current project/default-directory
                        ;; for references
                        (eq kind 'references)
-                       (let ((dir (or (f-full (cdr (project-current)))
-                                      (f-full default-directory)))
-                             (file (f-full
-                                    (xref-location-group (xref-item-location xref)))))
+                       (let ((dir (or (cdr (project-current))
+                                      default-directory))
+                             (file (xref-location-group (xref-item-location xref))))
                          (f-descendant-of-p file dir)))))
               (mapcar (eglot-childframe--run-alist-tests
                        eglot-childframe-xref-analyze-fn-alist)
@@ -376,19 +375,21 @@
 
 (defalias 'eglot-childframe-eglot-analyze #'identity)
 
+;; TODO: this function is having errors, why?
 (defun eglot-childframe-elisp-analyze (xref)
   (let* ((summ (xref-item-summary xref))
          (xref-loc (xref-item-location xref))
          ;; 1 - process file
-         (file (eglot-childframe--elisp-patch-file (xref-elisp-location-file xref-loc)))
+         (file (eglot-childframe--elisp-patch-file xref-loc))
          ;; 2 - process line
          (line (eglot-childframe--elisp-patch-line xref-loc)))
     (xref-make summ
-               (xref-make-file-location file line 1))))
+               (xref-make-file-location file line 0))))
 
-(defun eglot-childframe--elisp-patch-file (fname)
-  "Return the absolute path for the library of FNAME"
-  (let ((extension (file-name-extension fname)))
+(defun eglot-childframe--elisp-patch-file (xref-loc)
+  "Return the absolute path of XREF-LOC."
+  (let* ((fname (xref-location-group xref-loc))
+         (extension (file-name-extension fname)))
     (if (member extension '("c" "rs"))
         ;; future-proof - support remacs
         (format "%s/%s.%s"
