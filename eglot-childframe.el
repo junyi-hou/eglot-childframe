@@ -7,6 +7,8 @@
 
 ;;; Code:
 
+(require 'xref)
+
 (defgroup eglot-childframe nil
   "Customization group for `eglot-childframe'."
   :group 'eglot)
