@@ -428,8 +428,7 @@
              (line-needed (+ 3 (/ (abs pixel-needed) (default-font-height)))))
         (evil-scroll-line-down line-needed)
         ;; now we should be in case 1
-        (eglot-childframe-xref-frame-default-position)
-        ))
+        (eglot-childframe-xref-frame-default-position-fn)))
 
      ;; case 3: well within the premise of the current frame
      (t (cons x y)))))
