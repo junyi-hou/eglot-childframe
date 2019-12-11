@@ -22,9 +22,16 @@
     (define-key map (kbd "C-y") 'eglot-childframe-prev-xref)
     (define-key map (kbd "<RET>") 'eglot-childframe-switch-xref)
     (define-key map (kbd "<C-return>") 'eglot-childframe-pop-xref)
+    (define-key map (kbd "<C-g>") 'eglot-childframe-hide)
+    (define-key map (kbd "<escape>") 'eglot-childframe-hide)
     map)
   "Keymap for controlling help childframes."
   :type 'keymap
+  :group 'eglot-childframe)
+
+(defcustom eglot-childframe-use-transient-map t
+  "If non-nil, automatically close the popup frame if press keys outside of `eglot-childframe-frame-map'.  Otherwise close the popup frame using \\[eglot-childframe-hide]"
+  :type 'bool
   :group 'eglot-childframe)
 
 (defcustom eglot-childframe-mode-map (make-sparse-keymap)
@@ -165,6 +172,13 @@
       (setq eglot-childframe--content-window (selected-window))
       (apply display-fun args)
 
+      ;; set transient map if `eglot-childframe-use-transient-map' is non-nil
+      (when eglot-childframe-use-transient-map
+        (with-current-buffer eglot-childframe--content-buffer
+          (setq eglot-childframe--restore-keymap-fn
+                (set-transient-map
+                 eglot-childframe-frame-map t #'eglot-childframe-hide))))
+
       ;; deal with buffer-local-variables
       (with-current-buffer eglot-childframe--content-buffer
         (setq-local cursor-type nil)
@@ -190,11 +204,7 @@
         (with-current-buffer (get-buffer-create eglot-childframe--content-buffer)
           (erase-buffer)
           (insert blurb)
-          (goto-char 1)
-
-          (setq eglot-childframe--restore-keymap-fn
-                (set-transient-map
-                 eglot-childframe-frame-map t #'eglot-childframe-hide)))))
+          (goto-char 1))))
 
     (switch-to-buffer eglot-childframe--content-buffer)))
 
@@ -241,11 +251,7 @@
             (display-line-numbers-mode)
             (setq-local display-line-numbers t)
             (turn-on-font-lock)
-            (font-lock-ensure)))
-
-        (setq eglot-childframe--restore-keymap-fn
-              (set-transient-map
-               eglot-childframe-frame-map t #'eglot-childframe-hide)))
+            (font-lock-ensure))))
 
       (switch-to-buffer eglot-childframe--content-buffer)
       ;; FIXME how to go from line number to loc?
