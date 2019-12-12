@@ -402,7 +402,7 @@
 
 (defun eglot-childframe-help-frame-default-position-fn ()
   (let ((frame-edges (frame-edges)))
-    (if (eq (window-at 0 0) (selected-window))
+    (if (eq (car (window-edges)) 0)
         ;; current window on the left, display at the top right corner
         (cons (nth 2 frame-edges) (nth 1 frame-edges))
       (cons (nth 0 frame-edges) (nth 1 frame-edges)))))
