@@ -173,11 +173,12 @@
       (apply display-fun args)
 
       ;; set transient map if `eglot-childframe-use-transient-map' is non-nil
-      (when eglot-childframe-use-transient-map
-        (with-current-buffer eglot-childframe--content-buffer
-          (setq eglot-childframe--restore-keymap-fn
-                (set-transient-map
-                 eglot-childframe-frame-map t #'eglot-childframe-hide))))
+      (if eglot-childframe-use-transient-map
+          (with-current-buffer eglot-childframe--content-buffer
+            (setq eglot-childframe--restore-keymap-fn
+                  (set-transient-map
+                   eglot-childframe-frame-map t #'eglot-childframe-hide)))
+        (setq-local overriding-local-map eglot-childframe-frame-map))
 
       ;; deal with buffer-local-variables
       (with-current-buffer eglot-childframe--content-buffer
@@ -304,6 +305,9 @@
     (let ((fn eglot-childframe--restore-keymap-fn))
       (setq eglot-childframe--restore-keymap-fn nil)
       (funcall fn)))
+
+  (unless eglot-childframe-use-transient-map
+    (setq-local overriding-local-map nil))
 
   (when eglot-childframe--frame
     (delete-frame eglot-childframe--frame))
