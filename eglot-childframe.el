@@ -374,13 +374,13 @@
 ;; misc
 ;;; ===============================
 
-(defun eglot-childframe-flatten-list (args)
+(defun eglot-childframe--flatten-list (args)
   "Flatten any lists within ARGS, so that there are no sublists.  Ported from eshell."
   (let ((new-list (list t)))
     (dolist (a args)
       (if (and (listp a)
 	             (listp (cdr a)))
-	        (nconc new-list (eglot-childframe-flatten-list a))
+	        (nconc new-list (eglot-childframe--flatten-list a))
 	      (nconc new-list (list a))))
     (cdr new-list)))
 
